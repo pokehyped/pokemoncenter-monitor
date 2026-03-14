@@ -11,12 +11,12 @@ jobs:
     steps:
       - name: Fetch product page
         run: |
-          curl -L "REPLACE_POKEMONCENTER_URL" -A "Mozilla/5.0" -o page.html
+          curl -L "https://www.pokemoncenter.com/category/new-releases?category=tcg-cards?availability=true" -A "Mozilla/5.0" -o page.html
 
       - name: Detect status and notify Discord
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          PAGE_URL: "REPLACE_POKEMONCENTER_URL"
+          PAGE_URL: "https://www.pokemoncenter.com/category/new-releases?category=tcg-cards?availability=true"
         run: |
           STATUS="UNKNOWN"
 
