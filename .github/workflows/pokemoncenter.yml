@@ -1,16 +1,66 @@
-name: Discord Webhook Test
+name: Pokemon Center Monitor
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
 
 jobs:
-  test:
+  check:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     steps:
-      - name: Send Discord test
+      - name: Fetch Pokemon Center page
+        run: |
+          curl -L --max-time 30 \
+            "https://www.pokemoncenter.com/category/new-releases?category=tcg-cards&availability=true" \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" \
+            -o page.html
+
+      - name: Detect status
+        run: |
+          STATUS="UNKNOWN"
+
+          if grep -Eiq "virtual queue" page.html; then
+            STATUS="VIRTUAL QUEUE"
+          elif grep -Eiq "preorder" page.html; then
+            STATUS="PREORDER FOUND"
+          elif grep -Eiq "add to cart|add to bag|add to basket" page.html; then
+            STATUS="ADD TO CART FOUND"
+          elif grep -Eiq "sold out" page.html; then
+            STATUS="SOLD OUT FOUND"
+          fi
+
+          echo "STATUS=$STATUS" >> "$GITHUB_ENV"
+          echo "Detected status: $STATUS"
+
+      - name: Send Discord alert
+        if: env.STATUS != 'UNKNOWN'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          STATUS: ${{ env.STATUS }}
         run: |
-          curl -i -H "Content-Type: application/json" \
-            -d '{"content":"✅ Fresh webhook test from GitHub Actions"}' \
-            "$DISCORD_WEBHOOK"
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          webhook = os.environ["DISCORD_WEBHOOK"]
+          status = os.environ["STATUS"]
+          url = "https://www.pokemoncenter.com/category/new-releases?category=tcg-cards&availability=true"
+
+          payload = {
+              "content": f"🚨 Pokémon Center status detected\nStatus: {status}\nURL: {url}"
+          }
+
+          req = urllib.request.Request(
+              webhook,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+              method="POST",
+          )
+
+          with urllib.request.urlopen(req) as resp:
+              print("Discord response status:", resp.status)
+          PY
