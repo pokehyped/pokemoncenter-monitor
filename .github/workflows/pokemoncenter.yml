@@ -1,0 +1,57 @@
+name: Pokemon Center Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch product page
+        run: |
+          curl -L "REPLACE_POKEMONCENTER_URL" -A "Mozilla/5.0" -o page.html
+
+      - name: Detect status and notify Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PAGE_URL: "REPLACE_POKEMONCENTER_URL"
+        run: |
+          STATUS="UNKNOWN"
+
+          if grep -qi "virtual queue" page.html; then
+            STATUS="VIRTUAL QUEUE"
+          elif grep -qi "preorder: add to cart\|preorder add to cart\|preorder: add to basket" page.html; then
+            STATUS="PREORDER LIVE"
+          elif grep -qi "add to cart" page.html; then
+            STATUS="IN STOCK / ADD TO CART"
+          elif grep -qi "sold out" page.html; then
+            STATUS="SOLD OUT"
+          fi
+
+          echo "Detected status: $STATUS"
+
+          mkdir -p state
+          if [ -f state/last_status.txt ]; then
+            LAST_STATUS=$(cat state/last_status.txt)
+          else
+            LAST_STATUS="NONE"
+          fi
+
+          echo "Last status: $LAST_STATUS"
+
+          if [ "$STATUS" != "$LAST_STATUS" ]; then
+            PAYLOAD=$(printf '{"content":"🚨 **Pokémon Center status changed**\n**New status:** %s\n**URL:** %s"}' "$STATUS" "$PAGE_URL")
+            curl -H "Content-Type: application/json" \
+                 -d "$PAYLOAD" \
+                 "$DISCORD_WEBHOOK"
+          fi
+
+          echo "$STATUS" > state/last_status.txt
+
+      - name: Save state artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pokemoncenter-state
+          path: state/last_status.txt
