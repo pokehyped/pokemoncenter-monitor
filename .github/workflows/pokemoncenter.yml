@@ -1,39 +1,15 @@
-name: Pokemon Center Monitor
+name: Discord Webhook Test
 
 on:
   workflow_dispatch:
 
 jobs:
-  check:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch Pokemon Center page
-        run: |
-          curl -L "https://www.pokemoncenter.com/category/new-releases?category=tcg-cards&availability=true" \
-            -A "Mozilla/5.0" \
-            -o page.html
-
-      - name: Detect status
-        run: |
-          STATUS="UNKNOWN"
-
-          if grep -qi "virtual queue" page.html; then
-            STATUS="VIRTUAL QUEUE"
-          elif grep -qi "preorder" page.html; then
-            STATUS="PREORDER FOUND"
-          elif grep -qi "add to cart" page.html; then
-            STATUS="ADD TO CART FOUND"
-          elif grep -qi "sold out" page.html; then
-            STATUS="SOLD OUT FOUND"
-          fi
-
-          echo "STATUS=$STATUS" >> $GITHUB_ENV
-          echo "Detected status: $STATUS"
-
-      - name: Send Discord message
+      - name: Send Discord test
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-          STATUS: ${{ env.STATUS }}
         run: |
           python3 - <<'PY'
           import json
@@ -41,11 +17,9 @@ jobs:
           import urllib.request
 
           webhook = os.environ["DISCORD_WEBHOOK"]
-          status = os.environ.get("STATUS", "UNKNOWN")
-          url = "https://www.pokemoncenter.com/category/new-releases?category=tcg-cards&availability=true"
 
           payload = {
-              "content": f"📦 Pokemon Center monitor test\nStatus: {status}\nPage: {url}"
+              "content": "✅ Fresh webhook test from GitHub Actions"
           }
 
           req = urllib.request.Request(
