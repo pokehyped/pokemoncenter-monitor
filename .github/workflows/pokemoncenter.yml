@@ -11,24 +11,6 @@ jobs:
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
-          python3 - <<'PY'
-          import json
-          import os
-          import urllib.request
-
-          webhook = os.environ["DISCORD_WEBHOOK"]
-
-          payload = {
-              "content": "✅ Fresh webhook test from GitHub Actions"
-          }
-
-          req = urllib.request.Request(
-              webhook,
-              data=json.dumps(payload).encode("utf-8"),
-              headers={"Content-Type": "application/json"},
-              method="POST",
-          )
-
-          with urllib.request.urlopen(req) as resp:
-              print("HTTP status:", resp.status)
-          PY
+          curl -i -H "Content-Type: application/json" \
+            -d '{"content":"✅ Fresh webhook test from GitHub Actions"}' \
+            "$DISCORD_WEBHOOK"
